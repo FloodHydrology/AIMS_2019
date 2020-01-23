@@ -69,9 +69,9 @@ ID<-  #List all files in AL NHD folder
   #Add state col
   mutate(state="ID")
 
-#2.3 Download NM Files
-NM<-  #List all files in AL NHD folder
-  list.files(paste0(data_dir, "/NHD/NM")) %>% 
+#2.3 Download MS Files
+MS<-  #List all files in AL NHD folder
+  list.files(paste0(data_dir, "/NHD/MS")) %>% 
   #Convert to tibble
   as_tibble() %>% 
   #Filter to flowline dbf files
@@ -79,15 +79,33 @@ NM<-  #List all files in AL NHD folder
            str_detect(string = value, pattern='.dbf') &
            !str_detect(string = value, pattern='VAA')) %>% 
   #Add path information
-  mutate(value=paste0(data_dir, "/NHD/NM/", value)) %>% 
+  mutate(value=paste0(data_dir, "/NHD/MS/", value)) %>% 
   #Donvert path names to values
   pull %>% 
   #Read data files and bind rows
   map_df(., read.dbf) %>% bind_rows() %>% 
   #Add state col
-  mutate(state="NM")
+  mutate(state="MS")
 
-#2.4 Download AL Files
+#2.4 Download OK Files
+OK<-  #List all files in AL NHD folder
+  list.files(paste0(data_dir, "/NHD/OK")) %>% 
+  #Convert to tibble
+  as_tibble() %>% 
+  #Filter to flowline dbf files
+  filter(str_detect(string = value, pattern='Flowline') &
+           str_detect(string = value, pattern='.dbf') &
+           !str_detect(string = value, pattern='VAA')) %>% 
+  #Add path information
+  mutate(value=paste0(data_dir, "/NHD/OK/", value)) %>% 
+  #Donvert path names to values
+  pull %>% 
+  #Read data files and bind rows
+  map_df(., read.dbf) %>% bind_rows() %>% 
+  #Add state col
+  mutate(state="OK")
+
+#2.5 Download AL Files
 AL<-  #List all files in AL NHD folder
   list.files(paste0(data_dir, "/NHD/AL")) %>% 
   #Convert to tibble
@@ -105,15 +123,35 @@ AL<-  #List all files in AL NHD folder
   #Add state col
   mutate(state="AL")
 
-#2.5 Combine files and tidy
+#2.6 Download AL Files
+NC<-  #List NCl files in NC NHD folder
+  list.files(paste0(data_dir, "/NHD/NC")) %>% 
+  #Convert to tibble
+  as_tibble() %>% 
+  #Filter to flowline dbf files
+  filter(str_detect(string = value, pattern='Flowline') &
+           str_detect(string = value, pattern='.dbf') &
+           !str_detect(string = value, pattern='VAA')) %>% 
+  #Add path information
+  mutate(value=paste0(data_dir, "/NHD/NC/", value)) %>% 
+  #Donvert path names to vNCues
+  pull %>% 
+  #Read data files and bind rows
+  map_df(., read.dbf) %>% bind_rows() %>% 
+  #Add state col
+  mutate(state="NC")
+
+#2.6 Combine files and tidy
 df<-bind_rows(AL, ID) %>% 
   bind_rows(.,KS) %>% 
-  bind_rows(.,NM) %>% 
+  bind_rows(.,OK) %>% 
+  bind_rows(.,MS) %>% 
+  bind_rows(.,NC) %>%
   #Tidy dataframe
   as_tibble() %>% 
   select(state, ReachCode, FCode, Shape_Leng)
 
-#2.6 Clean up workspace
+#2.7 Clean up workspace
 remove(list=ls()[ls()!='df' &
                  ls()!='data_dir' &
                  ls()!='results_dir'])
@@ -143,7 +181,7 @@ dist<-dist %>%
   mutate(prop_stream_dist = IRES_stream_dist/tot_stream_dist*100)
 
 #Create plot
-a<-dist %>% 
+dist %>% 
   #Arrange by prop_stream_dist
   arrange(-prop_stream_dist) %>% 
   ggplot(aes(x=state, y=prop_stream_dist)) +
@@ -158,13 +196,13 @@ a<-dist %>%
           axis.title=element_text(size=14,face="bold"))
 
 #Export plot
-ggsave(paste0(results_dir,"/IRES_LENGTH_BY_STATE.jpg"), 
-       a,
-       dpi=300, 
-       width = 4, 
-       height = 3.5, 
-       units="in")
-               
+# ggsave(paste0(results_dir,"/IRES_LENGTH_BY_STATE.jpg"), 
+#        a,
+#        dpi=300, 
+#        width = 4, 
+#        height = 3.5, 
+#        units="in")
+                
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #4.0 Estimate stats on IRES Streams---------------------------------------------
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -184,7 +222,9 @@ gages <- gages %>%
   filter(Active==1) %>% 
   filter(STATE == "KS" |
          STATE == "ID" |
-         STATE == "NM" |
+         STATE == "OK" |
+         STATE == "MS" |
+         STATE == "NC" |   
          STATE == "AL") 
 
 #Create function to estimate mode
@@ -230,17 +270,17 @@ gages<-gages %>%
   )
 
 #Create plot
-b<-gages %>% 
+gages %>% 
   #Arrange by prop_stream_dist
   arrange(-prop) %>% 
   ggplot(aes(x=STATE, y=prop)) +
   geom_bar(stat='identity')+
   geom_text(aes(label=paste0('n=', n_IRES_gages), 
                 x=STATE, 
-                y=rep(13,4))) +
+                y=rep(13,6))) +
   geom_text(aes(label=paste0('(', n_gages,')'), 
                 x=STATE, 
-                y=rep(12,4))) +
+                y=rep(12,6))) +
   coord_cartesian(ylim = c(0,13))+
   xlab(NULL) +
   ylab(expression(
@@ -251,20 +291,81 @@ b<-gages %>%
         axis.title=element_text(size=14,face="bold"))
 
 #Export plot
-ggsave(paste0(results_dir,"/IRES_GAGES_BY_STATE.png"), 
-       b,
-       dpi=300, 
-       width = 4, 
-       height = 3.5, 
-       units="in")
+# ggsave(paste0(results_dir,"/IRES_GAGES_BY_STATE.png"), 
+#        b,
+#        dpi=300, 
+#        width = 4, 
+#        height = 3.5, 
+#        units="in")
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #5.0 Plot-----------------------------------------------------------------------
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-c<-grid.arrange(a, b, nrow = 1)
-ggsave(paste0(results_dir,"/IRES_BY_STATE.png"), 
-       c,
-       dpi=300, 
-       width = 8, 
-       height = 3.5, 
+#Define Point Colors
+col<-tibble(
+  state = c("AL", "ID", "KS", "MS", "NC", "OK"), 
+  shade = c("steelblue", "darkgreen", "darkorange", "steelblue", "steelblue", "darkorange")
+) 
+
+#Wrangle data
+t<-left_join(dist, 
+             gages %>% rename(state=STATE, 
+                              prop_gage = prop)) %>% 
+  left_join(., col) %>% 
+  select(state, prop_stream_dist, prop_gage, shade) %>% 
+  filter(state!="NC")
+
+#Plot
+SE<-t %>% subset(shade=='steelblue')
+W<-t %>% subset(shade=='darkgreen')
+PL<-t %>% subset(shade=='darkorange')
+cols = c("Southeastern forest" = 'steelblue', 
+         "Western mountains" = "darkgreen", 
+         "Central plains" = "darkorange") 
+ggplot() +
+  geom_point(aes(x=SE$prop_stream_dist, 
+                 y=SE$prop_gage, 
+                 label = SE$state, 
+                 fill = 'Southeastern forest'),
+             shape = 21, 
+             size=4, 
+             lwd=3) +
+  geom_point(aes(x=W$prop_stream_dist, 
+                 y=W$prop_gage, 
+                 label = W$state, 
+                 fill = 'Western mountains'),
+             shape = 21, 
+             size=4, 
+             lwd=3) +
+  geom_point(aes(x=PL$prop_stream_dist, 
+                 y=PL$prop_gage, 
+                 label = PL$state, 
+                 fill = 'Central plains'),
+             shape = 21, 
+             size=4, 
+             lwd=3) +
+  geom_text(aes(x=t$prop_stream_dist, 
+                y=t$prop_gage, 
+                label = t$state), 
+            hjust=c(0.25, -0.5, 1, 0.25, 1), 
+            vjust=-1, 
+            size = 4) +
+  scale_fill_manual(name=NULL, values=cols) +
+  theme_bw() +
+  theme(legend.position = c(0.95, 0.95),
+        legend.justification = c("right", "top"),
+        legend.box.just = "right",
+        legend.margin = margin(1, 1, 1, 1),
+        legend.title = element_text(size=10),
+        axis.text=element_text(size=12, face="bold"),
+        axis.title=element_text(size=14,face="bold")) +
+  ylab(expression(atop("Intermittent Gages", "[% of USGS Gages]"))) +
+  xlab(expression(atop("Intermittent Length","[% Total Length]"))) +
+  coord_cartesian(ylim = c(0,10))
+   
+ggsave(paste0(results_dir,"/IRES_BIPLOT.png"),
+       dpi=300,
+       width = 3.5,
+       height = 3,
        units="in")
+     
